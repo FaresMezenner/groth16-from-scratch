@@ -18,17 +18,21 @@ if len(sys.argv) < 2:
 command = sys.argv[1]
 example_number = int(sys.argv[2]) if len(sys.argv) > 2 else 1
 
-if command == 'full' or command == 'verify':
-    from verifier.verifier import VerifierNoZK
-    verifier = VerifierNoZK(modulo=101, example_path=f'./examples/example{example_number}/') 
-    try:
-        result = verifier.verify_proof_r1cs_no_zk()
-        if result:
-            print("Verification succeeded.")
-        else:
-            print("Verification failed.")
-    except AssertionError as e:
-        print(f"Verification failed: {e}")
+if command == 'full' :
+    from verifier.verifier import Verifier
+    from prover.prover import Prover
+    prover = Prover(example_path=f'./examples/example{example_number}/')
+    verifier = Verifier(modulo=101, example_path=f'./examples/example{example_number}/') 
+    prover.generate_somewhate_zk_proof_r1cs()
+    result = verifier.verify_somewhat_zk_proof()
+elif command == 'prove':
+    from prover.prover import Prover
+    prover = Prover(example_path=f'./examples/example{example_number}/')
+    prover.generate_somewhate_zk_proof_r1cs()
+elif command == 'verify':
+    from verifier.verifier import Verifier
+    verifier = Verifier(modulo=101, example_path=f'./examples/example{example_number}/') 
+    result = verifier.verify_somewhat_zk_proof()
 else:
     print_usage()
     sys.exit(1)

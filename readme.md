@@ -34,20 +34,10 @@ The `full` command is meant to run the full Groth16 proof generation and verific
 Other commands are:
 
 * `setup`: to just setup the example (not implemented yet).
-* `prove`: to just run the prover (not implemented yet).
-* `verify`: to just run the verifier.
+* `prove`: to just run the prover and generates `somewhat_zk_proof_witness.json` by using `wintess.json`.
+* `verify`: to just run the verifier, it reads `somewhat_zk_proof_witness.json` and `r1cs.json`.
 
-### Tests
-
-To run the tests, you can use the following command:
-
-```bash
-python -m unittest discover -s tests
-```
-
-These tests are meant to test different parts of the implementation as we advance.
-
-## **Step 1 (We are here so far): R1CS Implementation**
+## **Step 1 (implementation at [c246b8a](https://github.com/FaresMezenner/groth16-from-scratch/commit/c246b8a1b15ffe5f0f591c626a76ba15537a3210)): R1CS Implementation**
 
 Starting easy, we must first understand and implement **Rank 1 Constrain System (R1CS).**
 Basically, in ZK proofs, a verifier has an aricthmetic circuit over a finite field that modelizes computation, a prover having a witness for that circuit means that they have a set of signals for all the wires (public, private, and intermediate ones) that makes all the equations in the circuit evaluate to true. All of this without revealing any information about the private inputs to the verifier.
@@ -220,3 +210,70 @@ when $a$ is the witness vector defined before.
 if we expand both sides, we get the same constraints we defined previously, you can check it yourself!.
 and that's how we define R1CS for any arithmetic circuit.
 The problems we have now are that there is no ZK mechanisms yet, and the operations with matrices are expensive, so in the next steps we will see how Groth16 helps us to solve these problems.
+
+## Step 2 (We are here so far): Somewhat ZK proof using R1CS
+
+Previously, we created a R1CS representation of an arithmetic circuit that verifies that a prover knows a witness that satisfies the circuit constraints (what we want to verify, in other words).
+
+But it was not zero-knowledge at all, since the verifier could see all the witness values.
+So what will we do? we will create a "somewhat" zero-knowledge proof, meaning that the verifier will not see the actual witness values, but they will be able to verify that the prover knows a witness that satisfies the circuit constraints.
+And how? by encrypting the wintess values, and doing all the operations in the **ECC (Elliptic Curve Cryptography)** encrypted domain.
+
+So this will happen:
+
+* Instead of sending the witness values directly to the verifier, the prover will send their ECC encrypted versions, by multiplying all the values of the witness with the generator points of the ECC groups $ \mathbb{G}_1$  and  $\mathbb{G}_2 $.
+* We will replace the Hadamard product in the R1CS equation with the ECC pairing operation, which results in a $\mathbb{G}_T$ which is a group of elements with $12$ dimensions.
+
+### Calculations
+
+#### Encrypting the witness
+
+The prover has the witness vector $a = [1, a_1, a_2, ..., a_n]$, to encrypt it, they will compute two new vectors:
+
+$$
+w_{g1} = [G_1, a_1 \cdot G_1, a_2 \cdot G_1, ..., a_n \cdot G_1]
+$$
+
+$$
+w_{g2} = [G_1, a_1 \cdot G_1, a_2 \cdot G_1, ..., a_n \cdot G_1]
+$$
+
+Where $G_1$ and $G_2$ are the generator points of the ECC groups $\mathbb{G}_1$ and $\mathbb{G}_2$ respectively.
+
+Why do we need two encrypted witness vectors? because the pairing operation takes one element from $\mathbb{G}_1$ and one from $\mathbb{G}_2$, so we need both, one the $L$ matrix, and the other for the $R$ matrix.
+This calculation is done by the prover.
+
+#### Verifying the encrypted witness
+
+This is done by the verifier.
+We need to verifty that the prover actually encrypted the same witness in both $w_{g1}$ and $w_{g2}$ to avoid melicious behavior.
+This is done by pairing $w_{g1}$ elements with $G_2$ generator point, and pairing $w_{g2}$ elements with $G_1$ generator point, and checking that the results are equal for each index:
+$$
+e(w_{g1}[i], G_1) = e(G_1, w_{g2}[i]) \quad \forall i \in [0, n]
+$$
+
+**NOTATION NOTE:** $e()$ is the pairing operation, it takes one element from $\mathbb{G}_1$ and one from $\mathbb{G}_2$, and returns an element in $\mathbb{G}_T$. For easier notation, we will denote it using $ \odot $ from now on.
+
+#### Verifying the R1CS constraints in the encrypted domain
+
+We will calculate multiplications with $L$, $R$, $O$ as following:
+
+* **L:** Same calulcations as earlier, but replace each multiplication by the pairing operation, and it will be done between $L$ and $w_{g1}$, the result is $L\,w_{g1}$
+* **R:** Same calulcations as earlier, but replace each multiplication by the pairing operation, and it will be done between $L$ and $w_{g2}$, the result is $R\,w_{g2}$
+* **Hadamard product between $L\,w_{g1}$ and $R\,w_{g2}$:** Same as earlier, but now instead of multiplication we will have pairing, and the values will be in $\mathbb{G}_T$.
+* **O:** Here, we do the same calculations as earlier, but we need to be careful, because the results of the $L\,w_{g1}$ and $R\,w_{g2}$ pairing are in $\mathbb{G}_T$, so we need to get $O$ to have values in $\mathbb{G}_T$ as well, to do that, we will multiply $O$ matrix by $w_{g1}$, the result is $O\,w_{g1}$, and now to jump to $\mathbb{G}_T$, we will pair the result with $G_2$ generator point, meaning each value in $O\,w_{g1}$ will be paired with $G_2$, the results will be in $\mathbb{G}_T$.
+
+You might ask, why does not the prover multiply $O$ with $G_T$, the generator point of $\mathbb{G}_T$, and then sends it to the verifier directly? Well, we do not do this because it is impractical, because the prover would need to send elements in the $\mathbb{G}_T$ group, which are $12$-dimensional, meaning that each element would be represented by $12$ points in the ECC curve, which is a lot of data to send, so we avoid this by making the verifier do the pairing with $G_1$ and then $G_2$.
+
+Finally, the verifier checks that:
+$$
+O\,w_{g1} \odot G_2 = (L\,w_{g1}) \odot (R\,w_{g2})
+$$
+
+Where $\odot$ is the pairing operation.
+
+### What needs to be fixed so far
+
+So far, we have a "somewhat" zero-knowledge proof, why "somewhat"? because the verifier could still learn some information about the witness, for example, if the witness values are small, the verifier could brute-force them by trying all possible values and checking if they satisfy the constraints.
+
+The construction is also not succinct, because the verifier needs to do a lot of calculations, especially with the matrices.
