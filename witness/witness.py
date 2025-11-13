@@ -29,6 +29,28 @@ def save_somewhat_zk_proof_witness_to_json(witness_g1, witness_g2, json_path = '
         json.dump(somewhat_zk_proof_witness, f, indent=4)
 
 
+def deserialize_point_G1(point):
+    if point is None or (isinstance(point, list) and len(point) == 0):
+        return None
+    if len(point) == 2:
+        return (FQ(point[0]), FQ(point[1]))
+    raise ValueError(f"Invalid G1 point format: {point}")
+
+def deserialize_point_G2(point):
+    if point is None or len(point) == 0:
+        return None
+    x_coeffs = tuple(point[0])
+    y_coeffs = tuple(point[1])
+    if len(x_coeffs) != 2 or len(y_coeffs) != 2:
+        raise ValueError(f"Invalid G2 FQ2 coeffs: {point}")
+    return (FQ2(x_coeffs), FQ2(y_coeffs))
+
+def deserialize_points_G1(points):
+    return [deserialize_point_G1(point) for point in points]
+
+def deserialize_points_G2(points):
+    return [deserialize_point_G2(point) for point in points]
+
 def load_somewhat_zk_proof_witness_from_json(json_path = './examples/example1/somewhat_zk_proof_witness.json'):
 
     
@@ -38,26 +60,7 @@ def load_somewhat_zk_proof_witness_from_json(json_path = './examples/example1/so
     somewhat_zk_proof_witness = data
 
     assert 'witness_G1' in somewhat_zk_proof_witness and 'witness_G2' in somewhat_zk_proof_witness, "Encrypted witness must contain 'witness_G1' and 'witness_G2'"
-
-    # Build FQ/FQ2 points; empty list or None indicates point at infinity
-    wintess_g1 = []
-    for point in somewhat_zk_proof_witness['witness_G1']:
-        if point is None or (isinstance(point, list) and len(point) == 0):
-            wintess_g1.append(None)
-        else:
-            if len(point) == 2:
-                wintess_g1.append((FQ(point[0]), FQ(point[1])))
-            else:
-                raise ValueError(f"Invalid G1 point format: {point}")
-
-    witness_g2 = []
-    for point in somewhat_zk_proof_witness['witness_G2']:
-        if point is None or len(point) == 0:
-            witness_g2.append(None)
-        else:
-            x_coeffs = tuple(point[0])
-            y_coeffs = tuple(point[1])
-            if len(x_coeffs) != 2 or len(y_coeffs) != 2:
-                raise ValueError(f"Invalid G2 FQ2 coeffs: {point}")
-            witness_g2.append((FQ2(x_coeffs), FQ2(y_coeffs)))
+    wintess_g1 = deserialize_points_G1(somewhat_zk_proof_witness['witness_G1'])
+    witness_g2 = deserialize_points_G2(somewhat_zk_proof_witness['witness_G2'])
     return wintess_g1, witness_g2
+

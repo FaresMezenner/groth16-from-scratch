@@ -52,7 +52,11 @@ The witness vector is simply the vector that contains all the wire values (input
 * **Intermediate wires:** these are the values that are computed in the circuit but are neither inputs nor outputs, they are just needed to make the circuit work.
 
 We denote the witness vector as:
-$$a = [1, a_1, a_2, a_3, ..., a_n]$$
+
+$$
+a = [1, a_1, a_2, a_3, ..., a_n]
+$$
+
 Where each $a_i$ is the value of wire $i$ in the circuit.
 Why is that $1$ at the start? Because in R1CS we always have a constant wire with value $1$ that we use to express constants in the circuit, we will see how later.
 
@@ -61,31 +65,47 @@ Why is that $1$ at the start? Because in R1CS we always have a constant wire wit
 Let's say we want to check if the prover knows values for $x$ and $y$ such that when we compute the following function: $f(x, y) = (x + y) \cdot (x \cdot y) + c$ (where $c$ is a constant), they can provide us with the output $o$.
 
 Our circuit gates are as follows:
+
 $$
 z_1 = (x + y)\cdot(x \cdot y)
 $$
+
 $$
 o = z_1 + c
 $$
+
 Witness (over $\mathbb{F}_{101}$) for inputs $x=3$, $y=4$, $c=5$ (in here $c=5$ is a constant):
 
-$$ x = 3 $$
+$$
+x = 3
+$$
 
-$$ y = 4 $$
+$$
+y = 4
+$$
 
-$$ z_1 = 84 $$
+$$
+z_1 = 84
+$$
 
-$$ o = 89 $$
+$$
+o = 89
+$$
 
 All values are modulo $101$.
 
 So the witness vector will be:
-$$a = [1, x, y, z_1, o] = [1, 3, 4, 84, 89]$$
+
+$$
+a = [1, x, y, z_1, o] = [1, 3, 4, 84, 89]
+$$
+
 meaning that position $1$ is for $x$, position $2$ is for $y$, position $3$ is for $z_1$, and position $4$ is for $o$.
 
 Notice how $c$ is a constant, not a variable, so we don't need to assign it a wire value in the witness.
 
 Now we want to express this circuit as a Rank 1 Constrain System (R1CS). How we do it? By making each line in the circuit correspond to a constraint in the R1CS form:
+
 <!-- Let w ∈ F^n be the vector of all wires. Pick indices i, j ∈ {1, …, n} and a subset S ⊆ {1, …, n}. The constraint expresses that the product of wires i and j equals the sum of wires in S:
 
 $$
@@ -108,9 +128,17 @@ In other words, each constraint will have: -->
 
 We can express our previous circuit as the following R1CS constraints:
 
-$$z_1 = x \cdot y$$
-$$z_2 - x - y = 0$$
-$$o - c = z_1 \cdot z_2$$
+$$
+z_1 = x \cdot y
+$$
+
+$$
+z_2 - x - y = 0
+$$
+
+$$
+o - c = z_1 \cdot z_2
+$$
 
 If we make the needed substitutions we can see that these constraints are equivalent to our original circuit, and hence the original function that prover wants to proof to us the he knows a set of values that satisfy it (both inputs and outputs).
 This example might seem trivial, but it is important to understand how to express any circuit as R1CS constraints, as this is the first step towards implementing Groth16 ZK proofs, we will see more practical and complicated examples later.
@@ -146,21 +174,40 @@ How does it look? it is exactly like this:
 $$
 O\,a = (L\,a)\odot(R\,a)
 $$
+
 where $a$ is the witness vector, $L$, $R$, and $O$ are the matrices we just defined, and $\odot$ is the Hadamard product (element-wise multiplication).
 
 ### Example: Building L, R, O matrices for our example
 
 Let's build the L, R, O matrices for our previous example with the following constraints:
 
-$$z_1 = x \cdot y$$
-$$z_2 - x - y = 0$$
-$$o - c = z_1 \cdot z_2$$
+$$
+z_1 = x \cdot y
+$$
 
-Our witnes vector $a$ is: $$a = [1, x, y, z_1, z_2, o]$$.
+$$
+z_2 - x - y = 0
+$$
+
+$$
+o - c = z_1 \cdot z_2
+$$
+
+Our witnes vector $a$ is:
+
+$$
+a = [1, x, y, z_1, z_2, o]
+$$
+
+.
 Each matrix will have $3$ rows (one for each constraint) and $6$ columns (one for each wire).
 
 **PS:** for the second constraint, we could also write it as:
-$$z_2 - x = y$$
+
+$$
+z_2 - x = y
+$$
+
 Since the right hand side must have at most one multiplication, we could consider $y$ as being multiplied by $1$.
 
 #### Defining the L and R matrix
@@ -202,6 +249,7 @@ O = \begin{bmatrix}
 $$
 
 and using them, our R1CS example will be expressed as:
+
 $$
 O\,a = (L\,a)\odot(R\,a)
 $$
@@ -211,7 +259,7 @@ if we expand both sides, we get the same constraints we defined previously, you 
 and that's how we define R1CS for any arithmetic circuit.
 The problems we have now are that there is no ZK mechanisms yet, and the operations with matrices are expensive, so in the next steps we will see how Groth16 helps us to solve these problems.
 
-## Step 2 (We are here so far): Somewhat ZK proof using R1CS
+## Step 2 (implementation at [677ee43](https://github.com/FaresMezenner/groth16-from-scratch/commit/677ee437ae3d84f394ef24b9939fc093963dd8dc)): Somewhat ZK proof using R1CS
 
 Previously, we created a R1CS representation of an arithmetic circuit that verifies that a prover knows a witness that satisfies the circuit constraints (what we want to verify, in other words).
 
@@ -248,6 +296,7 @@ This calculation is done by the prover.
 This is done by the verifier.
 We need to verifty that the prover actually encrypted the same witness in both $w_{g1}$ and $w_{g2}$ to avoid melicious behavior.
 This is done by pairing $w_{g1}$ elements with $G_2$ generator point, and pairing $w_{g2}$ elements with $G_1$ generator point, and checking that the results are equal for each index:
+
 $$
 e(w_{g1}[i], G_1) = e(G_1, w_{g2}[i]) \quad \forall i \in [0, n]
 $$
@@ -266,6 +315,7 @@ We will calculate multiplications with $L$, $R$, $O$ as following:
 You might ask, why does not the prover multiply $O$ with $G_T$, the generator point of $\mathbb{G}_T$, and then sends it to the verifier directly? Well, we do not do this because it is impractical, because the prover would need to send elements in the $\mathbb{G}_T$ group, which are $12$-dimensional, meaning that each element would be represented by $12$ points in the ECC curve, which is a lot of data to send, so we avoid this by making the verifier do the pairing with $G_1$ and then $G_2$.
 
 Finally, the verifier checks that:
+
 $$
 O\,w_{g1} \odot G_2 = (L\,w_{g1}) \odot (R\,w_{g2})
 $$
@@ -277,3 +327,249 @@ Where $\odot$ is the pairing operation.
 So far, we have a "somewhat" zero-knowledge proof, why "somewhat"? because the verifier could still learn some information about the witness, for example, if the witness values are small, the verifier could brute-force them by trying all possible values and checking if they satisfy the constraints.
 
 The construction is also not succinct, because the verifier needs to do a lot of calculations, especially with the matrices.
+
+## Step 3 (We are here): Succinct ZK proof using QAP (Quadratic Arithmetic Programs)
+
+By succinct, means that the proof can be verified clearly and quickly.
+
+Quadratic Arithmetic Programs (QAP) are a way to represent R1CS constraints as polynomials, which allows us to create succinct ZK proofs.
+
+Currently our ZK proof algorithm takes $O(n*m)$ time where $n$ is the number of variables and $m$ is the number of constraints, which is not succinct at all.
+How can we make it happen in $O(1)$? Using **Schwartz-Zippel Lemma**, wich tells us that two non equivalent polynomials are equal in very few points, and exactly the number of these points is as maximum as the larger degree of the two polynomials. So we could use the **lemma** to check that polynomials are equal if they are equal in a random point. But what if we select the point where they are equal even if they are not equivalent? well here we count on probabilities, if the polynomials are of a certain degree, and the finite field order is very large, the chances of selecting such a point are very low.
+
+But Fares, we do not have polynomials, we have matrices!!! Here where Lagrange Interpolation comes into play.
+Using Lagrange Interpolation, we could represent the matrices as polynomials, these polynomials will have a degree that is way smaller than the field order, how do we know? Because we will use it to represent each column of the matrices, the degree of each polynomial will be at most the number of constraints, which are way smaller than the field order.
+
+Let's say we have one million variables and one million constraints, the degree of the polynomials will be at most one million, so we will be comparing polynomials of degree one million, in a field of order $p$, let's say $p$ is a 256-bit prime ($\approx 10^{77}$), the chances of selecting a random point where two non equivalent polynomials of degree one million are equal is at most
+
+$$
+\frac{10^6}{10^{77}} = 10^{-71}
+$$
+
+ which is very low.
+
+**Enough talking, let's see how it is done!**
+
+### Representing the matrices as polynomials
+
+For this, we will represent each column of the matrix as a polynomial, and then the set of these polynomials will represent the entire matrix. We can add them together to have one polynomial for the entire matrix, but in our case we will keep them separate for easier calculations later.
+
+We know that in interploation, we need to have some points, and then we can build the polynomial that passes through these points.
+But in our case we have a vector of values (columns of the matrices), how can we get points from it? We will do it by creating points from the values, where the x-coordinate is the index of the value in the vector, and the y-coordinate is the value itself.
+Meaning, if, for example, for $4$ constraints and $4$ wires, we have the following representations:
+
+$$
+L = \begin{bmatrix}
+l_{11} & l_{12} & l_{13} & l_{14} \\
+l_{21} & l_{22} & l_{23} & l_{24} \\
+l_{31} & l_{32} & l_{33} & l_{34} \\
+l_{41} & l_{42} & l_{43} & l_{44}
+\end{bmatrix}
+
+R = \begin{bmatrix}
+r_{11} & r_{12} & r_{13} & r_{14} \\
+r_{21} & r_{22} & r_{23} & r_{24} \\
+r_{31} & r_{32} & r_{33} & r_{34} \\
+r_{41} & r_{42} & r_{43} & r_{44}
+\end{bmatrix}
+
+O = \begin{bmatrix}
+o_{11} & o_{12} & o_{13} & o_{14} \\
+o_{21} & o_{22} & o_{23} & o_{24} \\
+o_{31} & o_{32} & o_{33} & o_{34} \\
+o_{41} & o_{42} & o_{43} & o_{44}
+\end{bmatrix}
+$$
+
+We will represent each column as a polynomial as following:
+
+$$
+u_1(x): \mathcal{L}([(1, l_{11}), (2, l_{21}), (3, l_{31}), (4, l_{41})])
+\qquad
+v_1(x): \mathcal{L}([(1, r_{11}), (2, r_{21}), (3, r_{31}), (4, r_{41})])
+\qquad
+w_1(x): \mathcal{L}([(1, o_{11}), (2, o_{21}), (3, o_{31}), (4, o_{41})])
+$$
+
+$$
+u_2(x): \mathcal{L}([(1, l_{12}), (2, l_{22}), (3, l_{32}), (4, l_{42})])
+\qquad
+v_2(x): \mathcal{L}([(1, r_{12}), (2, r_{22}), (3, r_{32}), (4, r_{42})])
+\qquad
+w_2(x): \mathcal{L}([(1, o_{12}), (2, o_{22}), (3, o_{32}), (4, o_{42})])
+$$
+
+$$
+u_3(x): \mathcal{L}([(1, l_{13}), (2, l_{23}), (3, l_{33}), (4, l_{43})])
+\qquad
+v_3(x): \mathcal{L}([(1, r_{13}), (2, r_{23}), (3, r_{33}), (4, r_{43})])
+\qquad
+w_3(x): \mathcal{L}([(1, o_{13}), (2, o_{23}), (3, o_{33}), (4, o_{43})])
+$$
+
+$$
+u_4(x): \mathcal{L}([(1, l_{14}), (2, l_{24}), (3, l_{34}), (4, l_{44})])
+\qquad
+v_4(x): \mathcal{L}([(1, r_{14}), (2, r_{24}), (3, r_{34}), (4, r_{44})])
+\qquad
+w_4(x): \mathcal{L}([(1, o_{14}), (2, o_{24}), (3, o_{34}), (4, o_{44})])
+$$
+
+Where $\mathcal{L}()$ is the Lagrange Interpolation function that takes a list of points and returns the polynomial that passes through these points (with the smallest degeree).
+
+### Calculating $La$, $Ra$, and $Oa$ using the polynomials
+
+Now that we have the polynomials representing the matrices, we can calculate $La$, $Ra$, and $Oa$ as following:
+
+$$
+La =
+\begin{bmatrix}
+u_1(1) & u_2(1) & u_3(1) & u_4(1) \\
+u_1(2) & u_2(2) & u_3(2) & u_4(2) \\
+u_1(3) & u_2(3) & u_3(3) & u_4(3) \\
+u_1(4) & u_2(4) & u_3(4) & u_4(4)
+\end{bmatrix}
+\begin{bmatrix}
+a_1 \\ a_2 \\ a_3 \\ a_4
+\end{bmatrix}
+=
+\begin{bmatrix}
+u_1(x) & u_2(x) & u_3(x) & u_4(x)
+\end{bmatrix}
+\begin{bmatrix}
+a_1 \\ a_2 \\ a_3 \\ a_4
+\end{bmatrix}
+= \sum_{i=1}^{4} u_i(x) \cdot a_i = u(x)
+$$
+
+$$
+Ra =
+\begin{bmatrix}
+v_1(1) & v_2(1) & v_3(1) & v_4(1) \\
+v_1(2) & v_2(2) & v_3(2) & v_4(2) \\
+v_1(3) & v_2(3) & v_3(3) & v_4(3) \\
+v_1(4) & v_2(4) & v_3(4) & v_4(4)
+\end{bmatrix}
+\begin{bmatrix}
+a_1 \\ a_2 \\ a_3 \\ a_4
+\end{bmatrix}
+=
+\begin{bmatrix}
+v_1(x) & v_2(x) & v_3(x) & v_4(x)
+\end{bmatrix}
+\begin{bmatrix}
+a_1 \\ a_2 \\ a_3 \\ a_4
+\end{bmatrix}
+= \sum_{i=1}^{4} v_i(x) \cdot a_i = v(x)
+$$
+
+$$
+Oa =
+\begin{bmatrix}
+w_1(1) & w_2(1) & w_3(1) & w_4(1) \\
+w_1(2) & w_2(2) & w_3(2) & w_4(2) \\
+w_1(3) & w_2(3) & w_3(3) & w_4(3) \\
+w_1(4) & w_2(4) & w_3(4) & w_4(4)
+\end{bmatrix}
+\begin{bmatrix}
+a_1 \\ a_2 \\ a_3 \\ a_4
+\end{bmatrix}
+=
+\begin{bmatrix}
+w_1(x) & w_2(x) & w_3(x) & w_4(x)
+\end{bmatrix}
+\begin{bmatrix}
+a_1 \\ a_2 \\ a_3 \\ a_4
+\end{bmatrix}
+= \sum_{i=1}^{4} w_i(x) \cdot a_i = v(x)
+$$
+
+where $a = [a_1, a_2, a_3, a_4]$ is the witness vector.
+
+### Verifying the R1CS constraints using the polynomials
+
+Verifying that $La \odot Ra = Oa$ is now done by checking that
+
+$$
+u(x) \cdot v(x) = w(x)
+$$
+
+ for a random point $x = r$.
+
+but there is a problem, even if $u(x) \cdot v(x)$ and $w(x)$ interplolate the same points, they might not be equivalent polynomials, so we need to fix this.
+
+How? by introducing the balencing technique. We know that $u(x) \cdot v(x)$ = w(x) \iff u(x) \cdot v(x)$ = $w(x) + 0$, so we will introduce a new polynomial $b(x)$ that will be $0$ at all the points $x$ where we did our interpolation, the point of it? so the polynomials  $u(x) \cdot v(x)$ $ and $w(x) + b(x)$ are equivalent.
+
+**IMPORTANT NOTE:** The calculations that are explained so far, and will be explained, are done by the prover.
+
+So now the prover must also calculate $b(x)$ and provide it to the verifier, but how do we force the prover to give a polynomial $b(x)$ that is $0$ at all the interpolation points?
+Simply by not asking the prover to provide it :), instead, we will ask the prover to provide us with the polynomial $h(x)$ such that:
+
+$$
+b(x) = h(x) \cdot t(x) \implies h(x) = \frac{b(x)}{t(x)}
+$$
+
+where $t(x)$ is the target polynomial that has roots at all the interpolation points, meaning:
+
+$$
+t(x) = (x-1)(x-2)(x-3)(x-4)
+$$
+
+and because the goal is to make the constraint
+
+$$
+u(x) \cdot v(x) = w(x) + b(x)
+$$
+
+ holds true, the provder can calculate $h(x)$ as following:
+
+$$
+h(x) = \frac{u(x) \cdot v(x) - w(x)}{t(x)}
+$$
+
+So now the verifier will check that:
+
+$$
+u(\tau) \cdot v(\tau) = w(\tau) + h(\tau) \cdot t(\tau)
+$$
+
+for a random point $\tau$.
+
+### Our somewhat ZK proof is now succinct and represented using QAP
+
+So finally, our succinct ZK proof using QAP is as following:
+
+$$
+\sum_{i=1}^{n} u_i(\tau) \cdot a_i \odot \sum_{i=1}^{n} v_i(\tau) \cdot a_i = \sum_{i=1}^{n} w_i(\tau) \cdot a_i + h(\tau) \cdot t(\tau)
+$$
+
+Where $\tau$ is a random selected point, and sent securely to the prover.
+
+So like this, the prover will calculate:
+
+$$
+A = u(\tau) = \sum_{i=1}^{n} u_i(\tau) \cdot a_i
+$$
+
+$$
+B = v(\tau) = \sum_{i=1}^{n} v_i(\tau) \cdot a_i
+$$
+
+$$
+C = w(\tau) + h(\tau)t(\tau) = \sum_{i=1}^{n} w_i(\tau) \cdot a_i + h(\tau) \cdot t(\tau)
+$$
+
+And then the verifier will check that:
+
+$$
+A \odot B = C
+$$
+
+All of this wthout revealing any information about the witness $a$ to the verifier.
+
+### what needs to be done next
+
+* How do we know that the prover calculated $A$, $B$, and $C$ correctly without revealing the witness?
+* Who and how generates $\tau$ securely?
+
+With these limitations, we will hold at the point where the prover calculates $A$, $B$, and $C$, the rest will come in the next step.

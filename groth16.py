@@ -28,7 +28,8 @@ if command == 'full' :
 elif command == 'prove':
     from prover.prover import Prover
     prover = Prover(example_path=f'./examples/example{example_number}/')
-    prover.generate_somewhate_zk_proof_r1cs()
+    # This is for Step 2 # prover.generate_somewhate_zk_proof_r1cs()
+    prover.generate_qap_proof()
 elif command == 'verify':
     from verifier.verifier import Verifier
     verifier = Verifier(modulo=101, example_path=f'./examples/example{example_number}/') 

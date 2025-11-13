@@ -1,6 +1,7 @@
 from py_ecc.bn128.bn128_curve import G1, G2, curve_order
 from py_ecc.bn128.bn128_pairing import pairing
 from py_ecc.bn128.bn128_curve import multiply, add
+from galois import lagrange_poly, GF
 
 def linear_combination(coeffs, vars, modulo):
     assert len(coeffs) == len(vars), "Length of coeffs and vars must be the same"
@@ -53,3 +54,9 @@ def linear_pairing_vectors(g1_points, g2_points):
     assert len(g1_points) == len(g2_points), "Length of G1 and G2 points must be the same"
     return [pairing(g2, g1) for g1, g2 in zip(g1_points, g2_points)]
 
+def lagrange_poly_vector(vector, galois_field=GF(curve_order)):
+
+    vector = galois_field(vector)
+    x_vals = galois_field.Range(1, len(vector) + 1)
+
+    return lagrange_poly(x_vals, vector)
