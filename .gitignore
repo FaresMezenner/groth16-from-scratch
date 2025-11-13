@@ -141,4 +141,6 @@ cython_debug/
 
 
 # ignore generated json files
-examples/**/somewhat_zk_proof_witness.json
+examples/**/proving_key.json
+examples/**/verification_key.json
+examples/**/proof.json

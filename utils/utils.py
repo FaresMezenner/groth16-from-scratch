@@ -1,24 +1,11 @@
 from py_ecc.bn128.bn128_curve import G1, G2, curve_order
 from py_ecc.bn128.bn128_pairing import pairing
 from py_ecc.bn128.bn128_curve import multiply, add
+
+from py_ecc.bn128 import FQ, FQ2  # type: ignore
 from galois import lagrange_poly, GF
 
-def linear_combination(coeffs, vars, modulo):
-    assert len(coeffs) == len(vars), "Length of coeffs and vars must be the same"
-    return sum(c * v for c, v in zip(coeffs, vars)) % modulo
 
-def matrix_vector_product(matrix, vector, modulo):
-    return [linear_combination(row, vector, modulo) for row in matrix]
-
-def vectors_modular_equal(vec1, vec2, modulo):
-    if len(vec1) != len(vec2):
-        return False
-    return all((a % modulo) == (b % modulo) for a, b in zip(vec1, vec2))
-    
-
-def hadamard_product(vec1, vec2, modulo):
-    assert len(vec1) == len(vec2), "Vectors must be of the same length"
-    return [(a * b) % modulo for a, b in zip(vec1, vec2)]
 
 
 def save_json(data, json_path):
@@ -26,33 +13,7 @@ def save_json(data, json_path):
     with open(json_path, 'w') as f:
         json.dump(data, f, indent=4)
 
-def pair_vector_with_G1(vector):
-    return [pairing(v, G1) for v in vector]
 
-def pair_vector_with_G2(vector):
-    return [pairing(G2, v) for v in vector]
-
-
-
-def linear_combination_ecc(coeffs, points):
-    assert len(coeffs) == len(points), "Length of coeffs and points must be the same"
-    result = None
-    for c, p in zip(coeffs, points):
-        if p is None:
-            continue  # skip point at infinity
-        k = int(c) % curve_order
-        if k == 0:
-            continue  # skip zero coefficient
-        term = multiply(p, k)
-        result = term if result is None else add(result, term)
-    return result
-
-def matrix_vector_product_ecc(matrix, vector):
-    return [linear_combination_ecc(row, vector) for row in matrix]
-
-def linear_pairing_vectors(g1_points, g2_points):
-    assert len(g1_points) == len(g2_points), "Length of G1 and G2 points must be the same"
-    return [pairing(g2, g1) for g1, g2 in zip(g1_points, g2_points)]
 
 def lagrange_poly_vector(vector, galois_field=GF(curve_order)):
 
@@ -60,3 +21,42 @@ def lagrange_poly_vector(vector, galois_field=GF(curve_order)):
     x_vals = galois_field.Range(1, len(vector) + 1)
 
     return lagrange_poly(x_vals, vector)
+
+def serialize_point_G1(point):
+    if point is None:
+        return []
+    return [int(coord) for coord in point]
+def serialize_point_G2(point):
+    if point is None:
+        return []
+    return [ [int(coeff) for coeff in  point[0].coeffs], [int(coeff) for coeff in  point[1].coeffs] ]
+
+def serialize_points_G1(points):
+    return [serialize_point_G1(point) for point in points]
+def serialize_points_G2(points):
+    return [serialize_point_G2(point) for point in points]
+
+def deserialize_point_G1(point):
+    if point is None or (isinstance(point, list) and len(point) == 0):
+        return None
+    if len(point) == 2:
+        return (FQ(point[0]), FQ(point[1]))
+    raise ValueError(f"Invalid G1 point format: {point}")
+
+def deserialize_point_G2(point):
+    if point is None or len(point) == 0:
+        return None
+    x_coeffs = tuple(point[0])
+    y_coeffs = tuple(point[1])
+    if len(x_coeffs) != 2 or len(y_coeffs) != 2:
+        raise ValueError(f"Invalid G2 FQ2 coeffs: {point}")
+    return (FQ2(x_coeffs), FQ2(y_coeffs))
+
+def deserialize_points_G1(points):
+    return [deserialize_point_G1(point) for point in points]
+
+def deserialize_points_G2(points):
+    return [deserialize_point_G2(point) for point in points]
+
+def get_coeff_from_poly(poly, degree):
+    return poly.coeffs[poly.degree - degree]

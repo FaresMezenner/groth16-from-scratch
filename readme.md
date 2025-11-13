@@ -328,7 +328,7 @@ So far, we have a "somewhat" zero-knowledge proof, why "somewhat"? because the v
 
 The construction is also not succinct, because the verifier needs to do a lot of calculations, especially with the matrices.
 
-## Step 3 (We are here): Succinct ZK proof using QAP (Quadratic Arithmetic Programs)
+## Step 3 (implementation at [02a57a9](https://github.com/FaresMezenner/groth16-from-scratch/commit/02a57a9fe9d6390491c3aa5673dd31d2d00ae672)): Succinct ZK proof using QAP (Quadratic Arithmetic Programs)
 
 By succinct, means that the proof can be verified clearly and quickly.
 
@@ -573,3 +573,93 @@ All of this wthout revealing any information about the witness $a$ to the verifi
 * Who and how generates $\tau$ securely?
 
 With these limitations, we will hold at the point where the prover calculates $A$, $B$, and $C$, the rest will come in the next step.
+
+## Step 4 (We are here so far): Trusted Setup for secure values generation
+
+To avoid melicious behavior from the prover, we need to make sure that the values they use to calculate $A$, $B$, and $C$ are generated securely and in a truly random way, so they cannot predict them and use them to cheat.
+How can we asssure this? by introducing a third actor in the protocol, called the **Trusted Setup**.
+
+The job of the Trusted Setup, so far, is to generate the random value $\tau$ securely, and also generate some other values that will help the prover to calculate $A$, $B$, and $C$ without revealing the witness (We will see them later).
+
+**Context:** We turned our R1CS into QAP polynomials, so we want to evaluate them at a random point $\tau$ in ECC encrypted domain, so the prover will not reveal the witness values to the verifier, because if the verifier knows $\tau$ or the evaluation is not encrypted, they could brute-force the witness values.
+
+### Structured Reference String (SRS) generation
+
+We know that a polynomial of degree $d$ is the set of coefficients $[c_0, c_1, c_2, ..., c_d]$, and evaluating it at a point $x = r$ is done by calculating the vector multiplication:
+$$
+\begin{bmatrix}c_0 && c_1 && c_2 && c_3 && ... && c_d
+\end{bmatrix}
+\cdot
+\begin{bmatrix}1 \\ r \\ r^2 \\ r^3 \\ ... \\ r^d
+\end{bmatrix}
+=
+\sum_{i=0}^{d} c_i \cdot r^i
+$$
+
+so if we want to evaluate a polynomial at a point $\tau$ in ECC encrypted domain, we need to have the values of $[1 \cdot G, \tau \cdot G, \tau^2 \cdot G, \tau^3 \cdot G, ..., \tau^d \cdot G]$, where $G$ is the generator point of the ECC group we are working with, and the result will be as following:
+$$
+\begin{bmatrix}c_0 && c_1 && c_2 && c_3 && ... && c_d
+\end{bmatrix}
+\cdot
+\begin{bmatrix}1 \cdot G \\ \tau \cdot G \\ \tau^2 \cdot G \\ \tau^3 \cdot G \\ ... \\ \tau^d \cdot G
+\end{bmatrix}
+=
+\sum_{i=0}^{d} c_i \cdot (\tau^i \cdot G)
+$$
+
+Notice how like this, the result is also in the ECC encrypted domain, because it is a sum of points in the ECC curve, and also, we having that vector of encrypted powers of $\tau$ was enough to evaluate the polynomial at point $\tau$ without knowing $\tau$ itself, and that's exactly what we want.
+
+**Trusted Setup** will generate these values for us, but not only that, it will also generate other values that will help us to evaluate the polynomials $u_i(x)$, $v_i(x)$, and $w_i(x)$ at point $\tau$ in ECC encrypted domain. And since we trust the Trusted Setup, we will assume that it generates these values correctly and securely, does not give $\tau$ to anyone, and deletes it after the generation. In a real-world scenario, the Trusted Setup is done using multi-party computation (MPC) to avoid having to trust a single party, where $\tau$ is mixed with other random values from other parties, so even if one party is melicious, the final $\tau$ will still be secure.
+
+The vector of such values (encrypted powers of a secret value) is called the **Structured Reference String (SRS)**, and it is defined as following for $\tau$:
+$$
+SRS1 = [G_1, \tau \cdot G_1, \tau^2 \cdot G_1, \tau^3 \cdot G_1, ..., \tau^d \cdot G_1] = [G_1, \Omega_{1}, \Omega_{2}, \Omega_{3}, ..., \Omega_{d}]
+$$
+$$
+SRS2 = [G_2, \tau \cdot G_2, \tau^2 \cdot G_2, \tau^3 \cdot G_2, ..., \tau^d \cdot G_2] = [G_2, \Theta_{1}, \Theta_{2}, \Theta_{3}, ..., \Theta_{d}]
+$$
+
+where $d$ is the maximum degree of the polynomials we want to evaluate, in our case it will be $n-1$ where $n$ is the number of constraints, because the degree of the polynomials $u_i(x)$, $v_i(x)$, and $w_i(x)$ is at most $n-1$.
+
+We could verify that the Trusted Setup generated the SRS correctly by checking that:
+$$
+e(\Theta_{1}, \Omega_{i}) = e(G_2, \Omega_{i+1}) \quad \forall i \in [1, d]
+$$
+
+if the trusted setup generates just SRS1, it should also $\Theta_{1} = \tau \cdot G_2$ securely, to verify that the SRS1 is generated correctly by checking the above.
+And the same logic applies if it generates just SRS2.
+
+### The needed SRS for our ZK proof
+
+We defined $SRS1$ and $SRS2$ for $\tau$, they are needed to evaluate the polynomials $u_i(x)$, $w_i() and $v_i(x)$ at point $\tau$ in ECC encrypted domain (respectively).
+
+But what about evaluating $h(x)t(x)$ at point $\tau$ in ECC encrypted domain? First you need to know that the degree of this polynomial is:
+$$
+(n-2) + n = 2n-2
+$$
+
+So the existing SRSs are none use.
+Also know that we can't evaluate $h(\tau)$ and $t(\tau)$ separately, because then we can't get an $\mathbb{G}_1$ element as a result.
+
+Our solution? The Trusted Setup will evaluate $t(x)$ at point $\tau$ directly in ECC encrypted domain, and then multiply it by the powers of $\tau$ to get the needed SRS:
+$$
+SRS3 = [t(\tau)G_1, \tau t(\tau) G_1, \tau^2 t(\tau) G_1, \tau^3 t(\tau) G_1, ..., \tau^{n-2} t(\tau) G_1] = [\Upsilon_{0}, \Upsilon_{1}, \Upsilon_{2}, \Upsilon_{3}, ..., \Upsilon_{n-2}]
+$$
+
+Then we will use this to evalute $h(x)t(\tau)$ at point $\tau$ in ECC encrypted domain, beacause, which is equal to evaluating $h(x)t(x)$ at point $\tau$ directly.
+
+### All what's left is to check
+
+Since we have all the needed SRSs to evaluate all the polynomials, the prover can calculate $A$, $B$ and $C$, then the verifier will check directly that this equation is balanced:
+$$
+A \cdot B = C \cdot G_2
+$$
+
+Which balances out if the prover has a witness that satisfies the QAP constraints.
+
+Where all the values are in ECC encrypted domain, so the verifier does not learn anything about the witness values.
+And we could notice that no matter how big our R1CS is, the proof size is always $256 bytes$ large (if we consider that $\mathbb{G}_1$ elements are $64 bytes$ large, and $\mathbb{G}_2$ elements are $128 bytes$ large), and the verification time is constant as well, which makes our ZK proof succinct.
+
+### What needs to be done next
+
+* The prover can still provide arbitrary values for $A$, $B$, and $C$, so the equation balances out even if they do not have a valid witness, how can we fix this?
