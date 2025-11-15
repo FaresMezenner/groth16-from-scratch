@@ -9,8 +9,10 @@ class Verifier:
         self.example_path = example_path
     def verify(self):
         A, B, C = keys.load_proof_from_json(json_path=self.example_path + 'proof.json')
+        alpha, beta = keys.load_verifying_key_from_json(json_path=self.example_path + 'verifying_key.json')
 
-        assert pairing(B, A) == pairing(G2, C)
+        
+        assert pairing(B, A) == pairing(beta, alpha) * pairing(G2, C), "Proof verification failed."
 
         print("Proof verification succeeded.")
         return True

@@ -1,17 +1,19 @@
+from galois import GF
 from r1cs.r1cs import load_matrices_from_json
 import random
 from py_ecc.bn128.bn128_curve import G1, G2, multiply, curve_order, add, neg
 from keys import keys
+from utils import utils
 
 class TrustedSetup:
 
     def __init__(self, example_path='./examples/example1/'):
         self.example_path = example_path
 
-    def get_constraints_number(self):
-        L, R, O = load_matrices_from_json(json_path=self.example_path + 'r1cs.json')
+    def get_constraints_number(self, L):
         num_constraints = len(L)
-        return num_constraints
+        num_variables = len(L[0])
+        return num_constraints, num_variables
     
 
 
@@ -48,17 +50,55 @@ class TrustedSetup:
             powers_of_tau_G1_with_t.append(multiply(powers_of_tau_G1_with_t[i], tau))
         return powers_of_tau_G1_with_t
 
+    def calculate_psi_values(self,  L, R, O,tau, num_polynomials, alpha, beta):
+
+        galois_field = GF(curve_order)
+
+        # Generate the polynomials of the matrices using Lagrange interpolation
+        L_transposed = list(zip(*L))
+        R_transposed = list(zip(*R))
+        O_transposed = list(zip(*O))
+        
+        # Convert tau, alpha, beta to field elements so all ops remain in GF
+        tau_field = galois_field(tau)
+        alpha_field = galois_field(alpha)
+        beta_field  = galois_field(beta)
+
+        L_polys = [utils.lagrange_poly_vector(col, galois_field=galois_field) for col in L_transposed]
+        R_polys = [utils.lagrange_poly_vector(col, galois_field=galois_field) for col in R_transposed]
+        O_polys = [utils.lagrange_poly_vector(col, galois_field=galois_field) for col in O_transposed]
+
+        psi_values = []
+        for i in range(num_polynomials):
+            alpha_v_i_tau = alpha_field * R_polys[i](tau_field)
+            beta_u_i_tau = beta_field * L_polys[i](tau_field)
+            psi_i = multiply(G1, int(alpha_v_i_tau + beta_u_i_tau + O_polys[i](tau_field)))
+            psi_values.append(psi_i)
+
+        return psi_values
+
+
+
     def generate_srs(self):
-        constraints_nb = self.get_constraints_number()
+        L, R, O = load_matrices_from_json(json_path=self.example_path + 'r1cs.json', galois_field=GF(curve_order))
+        constraints_nb, num_variables = self.get_constraints_number(L)
         tau = random.randint(0, curve_order )
+        alpha = random.randint(0, curve_order )
+        beta = random.randint(0, curve_order )
+
         srs1 = self.power_of_tau_G1(constraints_nb, tau)
         srs2 = self.power_of_tau_G2(constraints_nb, tau)
         srs3 = self.power_of_tau_G1_with_t(constraints_nb, tau)
+        
+        psi = self.calculate_psi_values(L, R, O, tau, num_variables, alpha, beta)
 
-        keys.save_prooving_key_to_json(srs1, srs2, srs3, json_path = self.example_path + 'proving_key.json')
+        alpha_G1 = multiply(G1, alpha)
+        beta_G2 = multiply(G2, beta)
 
+        keys.save_prooving_key_to_json(srs1, srs2, srs3, psi, alpha_G1, beta_G2, json_path = self.example_path + 'proving_key.json')
+        keys.save_verifying_key_to_json( alpha_G1, beta_G2, json_path = self.example_path + 'verifying_key.json')
 
-        return srs1, srs2, srs3
+        return srs1, srs2, srs3, psi
 
     
 

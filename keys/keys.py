@@ -2,11 +2,14 @@ import json
 
 from utils import utils
 
-def save_prooving_key_to_json(srs1, srs2, srs3, json_path = './examples/example1/proving_key.json'):
+def save_prooving_key_to_json(srs1, srs2, srs3, psi, alpha, beta, json_path = './examples/example1/proving_key.json'):
     proving_key_data = {
         'srs1': utils.serialize_points_G1(srs1),
         'srs2': utils.serialize_points_G2(srs2),
         'srs3': utils.serialize_points_G1(srs3),
+        'psi': utils.serialize_points_G1(psi),
+        'alpha': utils.serialize_point_G1(alpha),
+        'beta': utils.serialize_point_G2(beta),
     }
 
     with open(json_path, 'w') as f:
@@ -18,11 +21,14 @@ def load_proving_key_from_json(json_path = './examples/example1/proving_key.json
         data = json.load(f)
     proving_key_data = data
 
-    assert 'srs1' in proving_key_data and 'srs2' in proving_key_data and 'srs3' in proving_key_data, "Proving key must contain 'srs1', 'srs2' and 'srs3'"
+    assert 'srs1' in proving_key_data and 'srs2' in proving_key_data and 'srs3' in proving_key_data and 'psi' in proving_key_data and 'alpha' in proving_key_data and 'beta' in proving_key_data, "Proving key must contain 'srs1', 'srs2', 'srs3', 'psi', 'alpha' and 'beta'"
     srs1 = utils.deserialize_points_G1(proving_key_data['srs1'])
     srs2 = utils.deserialize_points_G2(proving_key_data['srs2'])
     srs3 = utils.deserialize_points_G1(proving_key_data['srs3'])
-    return srs1, srs2, srs3
+    psi = utils.deserialize_points_G1(proving_key_data['psi'])
+    alpha = utils.deserialize_point_G1(proving_key_data['alpha'])
+    beta = utils.deserialize_point_G2(proving_key_data['beta'])
+    return srs1, srs2, srs3, psi, alpha, beta
 
 
 def save_proof_to_json(A, B, C, json_path = './examples/example1/proof.json'):
@@ -46,3 +52,24 @@ def load_proof_from_json(json_path = './examples/example1/proof.json'):
     B = utils.deserialize_point_G2(proof_data['B'])
     C = utils.deserialize_point_G1(proof_data['C'])
     return A, B, C
+
+
+def save_verifying_key_to_json(alpha, beta, json_path = './examples/example1/verifying_key.json'):
+    verifying_key_data = {
+        'alpha': utils.serialize_point_G1(alpha),
+        'beta': utils.serialize_point_G2(beta),
+    }
+
+    with open(json_path, 'w') as f:
+        json.dump(verifying_key_data, f, indent=4)
+
+def load_verifying_key_from_json(json_path = './examples/example1/verifying_key.json'):
+
+    with open(json_path, 'r') as f:
+        data = json.load(f)
+    verifying_key_data = data
+
+    assert 'alpha' in verifying_key_data and 'beta' in verifying_key_data, "Verifying key must contain 'alpha' and 'beta'"
+    alpha = utils.deserialize_point_G1(verifying_key_data['alpha'])
+    beta = utils.deserialize_point_G2(verifying_key_data['beta'])
+    return alpha, beta

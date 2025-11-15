@@ -5,10 +5,14 @@ def print_usage():
     print('''
     Usage: python verifier.py <command> <example_number:int>
     Commands:
-          full - Run the full ZK proof (currently only verifier part is implemented with no ZK properties)
-          setup - Run the trusted setup phase (not implemented yet)
-          prove - Generate a proof for the given example (not implemented yet)
-          verify - Verify the proof for the given example (no ZK properties yet)
+          full - Run the full ZK proof cycle: trusted setup (Reads from r1cs.json, writes proving_key.json and verifying_key.json), 
+                 proof generation (Reads from proving_key.json and witness.json, writes proof.json) 
+                 and proof verification (Reads from proof.json and verifying_key.json)
+          setup - Run the trusted setup phase only for the given example (Reads from r1cs.json, writes proving_key.json and verifying_key.json)
+          prove - Generate a proof for the given example (Read from proving_key.json and witness.json, writes proof.json)
+          verify - Verify the proof for the given example (Read from proof.json and verifying_key.json)
+    Example:
+          python verifier.py full 1
 ''')
 
 if len(sys.argv) < 2:

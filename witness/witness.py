@@ -1,8 +1,6 @@
 import json
 from py_ecc.bn128.bn128_curve import G1, G2
-from py_ecc.bn128 import FQ, FQ2  # type: ignore
 
-from utils.utils import deserialize_points_G1, deserialize_points_G2, serialize_points_G1, serialize_points_G2 # type: ignore
 
 def load_witness_from_json(json_path = './examples/example1/witness.json', modulo = None, galois_field=None):
 

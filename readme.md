@@ -481,7 +481,7 @@ w_1(x) & w_2(x) & w_3(x) & w_4(x)
 \begin{bmatrix}
 a_1 \\ a_2 \\ a_3 \\ a_4
 \end{bmatrix}
-= \sum_{i=1}^{4} w_i(x) \cdot a_i = v(x)
+= \sum_{i=1}^{4} w_i(x) \cdot a_i = w(x)
 $$
 
 where $a = [a_1, a_2, a_3, a_4]$ is the witness vector.
@@ -574,7 +574,7 @@ All of this wthout revealing any information about the witness $a$ to the verifi
 
 With these limitations, we will hold at the point where the prover calculates $A$, $B$, and $C$, the rest will come in the next step.
 
-## Step 4 (We are here so far): Trusted Setup for secure values generation
+## Step 4 (implementation at [917c640](https://github.com/FaresMezenner/groth16-from-scratch/commit/917c640c7b3816ea74d81b2ed029cb73e731fe21)): Trusted Setup for secure values generation
 
 To avoid melicious behavior from the prover, we need to make sure that the values they use to calculate $A$, $B$, and $C$ are generated securely and in a truly random way, so they cannot predict them and use them to cheat.
 How can we asssure this? by introducing a third actor in the protocol, called the **Trusted Setup**.
@@ -586,6 +586,7 @@ The job of the Trusted Setup, so far, is to generate the random value $\tau$ sec
 ### Structured Reference String (SRS) generation
 
 We know that a polynomial of degree $d$ is the set of coefficients $[c_0, c_1, c_2, ..., c_d]$, and evaluating it at a point $x = r$ is done by calculating the vector multiplication:
+
 $$
 \begin{bmatrix}c_0 && c_1 && c_2 && c_3 && ... && c_d
 \end{bmatrix}
@@ -597,6 +598,7 @@ $$
 $$
 
 so if we want to evaluate a polynomial at a point $\tau$ in ECC encrypted domain, we need to have the values of $[1 \cdot G, \tau \cdot G, \tau^2 \cdot G, \tau^3 \cdot G, ..., \tau^d \cdot G]$, where $G$ is the generator point of the ECC group we are working with, and the result will be as following:
+
 $$
 \begin{bmatrix}c_0 && c_1 && c_2 && c_3 && ... && c_d
 \end{bmatrix}
@@ -612,9 +614,11 @@ Notice how like this, the result is also in the ECC encrypted domain, because it
 **Trusted Setup** will generate these values for us, but not only that, it will also generate other values that will help us to evaluate the polynomials $u_i(x)$, $v_i(x)$, and $w_i(x)$ at point $\tau$ in ECC encrypted domain. And since we trust the Trusted Setup, we will assume that it generates these values correctly and securely, does not give $\tau$ to anyone, and deletes it after the generation. In a real-world scenario, the Trusted Setup is done using multi-party computation (MPC) to avoid having to trust a single party, where $\tau$ is mixed with other random values from other parties, so even if one party is melicious, the final $\tau$ will still be secure.
 
 The vector of such values (encrypted powers of a secret value) is called the **Structured Reference String (SRS)**, and it is defined as following for $\tau$:
+
 $$
 SRS1 = [G_1, \tau \cdot G_1, \tau^2 \cdot G_1, \tau^3 \cdot G_1, ..., \tau^d \cdot G_1] = [G_1, \Omega_{1}, \Omega_{2}, \Omega_{3}, ..., \Omega_{d}]
 $$
+
 $$
 SRS2 = [G_2, \tau \cdot G_2, \tau^2 \cdot G_2, \tau^3 \cdot G_2, ..., \tau^d \cdot G_2] = [G_2, \Theta_{1}, \Theta_{2}, \Theta_{3}, ..., \Theta_{d}]
 $$
@@ -622,6 +626,7 @@ $$
 where $d$ is the maximum degree of the polynomials we want to evaluate, in our case it will be $n-1$ where $n$ is the number of constraints, because the degree of the polynomials $u_i(x)$, $v_i(x)$, and $w_i(x)$ is at most $n-1$.
 
 We could verify that the Trusted Setup generated the SRS correctly by checking that:
+
 $$
 e(\Theta_{1}, \Omega_{i}) = e(G_2, \Omega_{i+1}) \quad \forall i \in [1, d]
 $$
@@ -634,6 +639,7 @@ And the same logic applies if it generates just SRS2.
 We defined $SRS1$ and $SRS2$ for $\tau$, they are needed to evaluate the polynomials $u_i(x)$, $w_i() and $v_i(x)$ at point $\tau$ in ECC encrypted domain (respectively).
 
 But what about evaluating $h(x)t(x)$ at point $\tau$ in ECC encrypted domain? First you need to know that the degree of this polynomial is:
+
 $$
 (n-2) + n = 2n-2
 $$
@@ -642,6 +648,7 @@ So the existing SRSs are none use.
 Also know that we can't evaluate $h(\tau)$ and $t(\tau)$ separately, because then we can't get an $\mathbb{G}_1$ element as a result.
 
 Our solution? The Trusted Setup will evaluate $t(x)$ at point $\tau$ directly in ECC encrypted domain, and then multiply it by the powers of $\tau$ to get the needed SRS:
+
 $$
 SRS3 = [t(\tau)G_1, \tau t(\tau) G_1, \tau^2 t(\tau) G_1, \tau^3 t(\tau) G_1, ..., \tau^{n-2} t(\tau) G_1] = [\Upsilon_{0}, \Upsilon_{1}, \Upsilon_{2}, \Upsilon_{3}, ..., \Upsilon_{n-2}]
 $$
@@ -651,6 +658,7 @@ Then we will use this to evalute $h(x)t(\tau)$ at point $\tau$ in ECC encrypted 
 ### All what's left is to check
 
 Since we have all the needed SRSs to evaluate all the polynomials, the prover can calculate $A$, $B$ and $C$, then the verifier will check directly that this equation is balanced:
+
 $$
 A \cdot B = C \cdot G_2
 $$
@@ -663,3 +671,113 @@ And we could notice that no matter how big our R1CS is, the proof size is always
 ### What needs to be done next
 
 * The prover can still provide arbitrary values for $A$, $B$, and $C$, so the equation balances out even if they do not have a valid witness, how can we fix this?
+
+## Step 5 (We are here so far): Making our proof sound (resilient to melicious provers)
+
+We've said that the prover could choose arbitrary values for $A$, $B$, and $C$ such that the equation balances out, simply by choosing simple values on the finite field, $a$, $b$, and $c$, such that $ab = c$, and then setting:
+
+$$
+A = a \cdot G_1
+$$
+
+$$
+B = b \cdot G_2
+$$
+
+$$
+C = c \cdot G_1
+$$
+
+this will make the equation balance out, because:
+
+$$
+e(A, B) = e(a \cdot G_1, b \cdot G_2) \iff e(G_1, G_2)^{ab} = e(G_1, G_2)^{c} \iff ab = c
+$$
+
+### Introducing \alpha and \beta
+
+This values will be generated by the Trusted Setup, where:
+
+$$
+\alpha \text{ is a scalar and } \alpha \cdot G_1 = [\alpha]_{1} \in \mathbb{G}_1
+$$
+
+$$
+\beta \text{ is a scalar and } \beta \cdot G_2 = [\beta]_{2} \in \mathbb{G}_2
+$$
+
+and then published to be used to calculate $D = [\alpha]_{1} \cdot \beta$, a new value that will be sent by the prover along with $A$, $B$, and $C$.
+
+Why do we do this? because our new QAP equation will be:
+
+$$
+A \cdot B = D + C \cdot G_2 = [\alpha]_{1} \cdot [\beta]_{2}  + C \cdot G_2
+$$
+
+It's obvious that $D \in \mathbb{G}_T$, because it is the result of pairing $[\alpha]_{1}$ and $[\beta]_{2}$.
+
+Why do we need this? because the user cannot find $a$, $b$, and $c$ such that:
+
+$$
+e(a \cdot G_1, b \cdot G_2) = e([\alpha]_{1}, [\beta]_{2}) + e(c \cdot G_1, G_2)
+$$
+
+But how can we add these values to the equation without breaking it? by changing the way we calculate $A$, $B$, and $C$ as following:
+
+$$
+A \cdot B =
+\sum_{i=1}^{m} a_i u_i(x) + \sum_{i=1}^{m} a_i v_i(x) = \sum_{i=1}^{m} a_i w_i(x) + h(x) t(x)=
+
+\left( \boxed{[\alpha]_{1}} + \sum_{i=1}^{m} a_i u_i(x) \right)
+\left( \boxed{[\beta]_{2}} + \sum_{i=1}^{m} a_i v_i(x) \right)
+\\
+\iff
+\\
+\left( [\alpha]_{1} + \sum_{i=1}^{m} a_i u_i(\tau) \right)_{A} \left( [\beta]_{2} + \sum_{i=1}^{m} a_i v_i(\tau) \right)_{B}
+
+=
+[\alpha]_{1} \bullet [\beta]_{2}
++
+\left(
+\alpha \sum_{i=1}^{m} a_i v_i(\tau)
++
+\beta \sum_{i=1}^{m} a_i u_i(\tau)
++
+\sum_{i=1}^{m} a_i w_i(\tau)
++
+h(\tau) t(\tau)
+\right)_{C}
+\bullet G_2
+$$
+
+The provder can and will calculate $A$, $B$, but for $C$, it's a problem, they do not know $\alpha$ and $\beta$ scalars, so how can they calculate it?
+The answer is simple, the Trusted will step in again, by calculating and providing the values of the problematic part pf $C$:
+
+$$
+\alpha \sum_{i=1}^{m} a_i v_i(\tau)
++ \beta \sum_{i=1}^{m} a_i u_i(\tau)
++ \sum_{i=1}^{m} a_i w_i(\tau)
+=
+= \sum_{i=1}^{m} \left( \alpha a_i v_i(\tau) + \beta a_i u_i(\tau) + a_i w_i(\tau) \right)
+== \sum_{i=1}^{m} a_i\,\boxed{\left( \alpha v_i(\tau) + \beta u_i(\tau) + w_i(\tau) \right)}
+$$
+
+Only the boxed part is  the only part that the Trusted Setup will provide to the prover, because it's the problematic part for the prover to calculate, and $a_i$ is not included because the prover knows it and Trusted Setup does not.
+
+These valuse will previded in a $\Psi$ vector as following:
+
+$$
+\Psi_{i} = (\alpha v_i(\tau) + \beta u_i(\tau) + w_i(\tau)) \cdot G_1 \quad \forall i \in [1, m]
+$$
+
+And with this, the prover can calculate $C$ as following:
+
+$$
+C =
+\left(
+\sum_{i=1}^{m} a_i \Psi_{i}
++ h(\tau) t(\tau)
+\right)
+$$
+
+At this point, I asked the question, doesn't changing the QAP equation means that calculating $h(x)$ also changes? the quick answer is yes and no at the same time, in a nutshell, the way we calculate $h(x)$ does not change.
