@@ -5,6 +5,7 @@ from witness.witness import  load_witness_from_json, public_inputs_length
 from py_ecc.bn128.bn128_curve import G1, G2, multiply, curve_order, add
 from py_ecc.bn128.bn128_pairing import pairing
 from keys import keys
+import random
 
 class Prover:
     def __init__(self, example_path = './examples/example1/'):
@@ -44,14 +45,33 @@ class Prover:
             else:
                 result_poly += poly * witness[i]
         return result_poly
+    
+    #sanity check for srs that is encrypted in G1
+    def sanity_check_srs_G1(self, srs, encrypted_tau):
+        for i in range(0, len(srs)-1):
+            left = pairing(encrypted_tau, srs[i] )
+            right = pairing(G2, srs[i+1])
+            assert left == right, f"SRS G1 sanity check failed at index {i}"
+    
+    #sanity check for srs that is encrypted in G2
+    def sanity_check_srs_G2(self, srs, encrypted_tau):
+        for i in range(0, len(srs)-1):
+            left = pairing(srs[i], encrypted_tau )
+            right = pairing(srs[i+1], G1)
+            assert left == right, f"SRS G2 sanity check failed at index {i}"
+
+
 
     def generate_proof(self):
 
         galois_field = GF(curve_order)
         witness = load_witness_from_json(json_path=self.example_path + 'witness.json', galois_field=galois_field)
         L, R, O = load_matrices_from_json(json_path=self.example_path + 'r1cs.json',  galois_field=galois_field)
-        srs1, srs2, srs3, psi, alpha, beta = keys.load_proving_key_from_json(json_path=self.example_path + 'proving_key.json')
+        srs1, srs2, srs3, psi, alpha, beta_G1, beta_G2, delta_G1, delta_G2 = keys.load_proving_key_from_json(json_path=self.example_path + 'proving_key.json')
 
+        # sanity check for srs1 and srs2
+        self.sanity_check_srs_G1(srs1, srs2[1])  # encrypted tau in G2 is srs2[1]
+        self.sanity_check_srs_G2(srs2, srs1[1]) # encrypted tau in G1 is srs1[1]
 
         # Generate the polynomials of the matrices using Lagrange interpolation
         L_transposed = list(zip(*L))
@@ -82,16 +102,20 @@ class Prover:
         # and here, we will calculate the problematic part of C (\alpha \sum_{i=1}^{m} a_i v_i(\tau) + \beta \sum_{i=1}^{m} a_i u_i(\tau) + \sum_{i=1}^{m} a_i w_i(\tau))
         problematic_C_part = self.evaluate_problematic_C_part(witness, psi)
 
-        # calculating A, B, C
-        A = add(self.evaluate_poly_using_srs(u_x, srs1), alpha)
-        B = add(self.evaluate_poly_using_srs(v_x, srs2), beta)
-        C = add(problematic_C_part, h_t_tau)
+        # calculating A, B, C using salting
+        r = random.randint(1, curve_order )
+        s = random.randint(1, curve_order )
+        A_1 = add(add(self.evaluate_poly_using_srs(u_x, srs1), alpha), multiply(delta_G1, r))
+        
+        B_1 = add(add(self.evaluate_poly_using_srs(v_x, srs1), beta_G1) , multiply(delta_G1, s))
+        B_2 = add(add(self.evaluate_poly_using_srs(v_x, srs2), beta_G2), multiply(delta_G2, s))
+        C_1 = add(add(add(add(problematic_C_part, h_t_tau), multiply(A_1, s)), multiply(B_1, r)), multiply(delta_G1, (-r * s)%curve_order))
 
-        keys.save_proof_to_json(A, B, C, json_path=self.example_path + 'proof.json')
+        keys.save_proof_to_json(A_1,  B_2, C_1, json_path=self.example_path + 'proof.json')
 
 
         
 
-        return A, B, C
+        return A_1, B_2, C_1
 
         

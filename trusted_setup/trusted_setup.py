@@ -110,11 +110,13 @@ class TrustedSetup:
         proving_psi = psi[num_public_inputs:]
 
         alpha_G1 = multiply(G1, alpha)
+        beta_G1 = multiply(G1, beta)
         beta_G2 = multiply(G2, beta)
+        delta_G1 = multiply(G1, delta)
         delta_G2 = multiply(G2, delta)
         gamma_G2 = multiply(G2, gamma)
 
-        keys.save_prooving_key_to_json(srs1, srs2, srs3, proving_psi, alpha_G1, beta_G2, json_path = self.example_path + 'proving_key.json')
+        keys.save_prooving_key_to_json(srs1, srs2, srs3, proving_psi, alpha_G1, beta_G1, beta_G2, delta_G1, delta_G2, json_path = self.example_path + 'proving_key.json')
         keys.save_verifying_key_to_json( alpha_G1, beta_G2, delta_G2, gamma_G2, verifying_psi, json_path = self.example_path + 'verifying_key.json')
 
         return srs1, srs2, srs3, psi
