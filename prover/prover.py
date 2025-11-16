@@ -1,7 +1,7 @@
 from galois import GF, Poly
 from r1cs.r1cs import load_matrices_from_json
 from utils.utils import get_coeff_from_poly, lagrange_poly_vector, save_json
-from witness.witness import  load_witness_from_json
+from witness.witness import  load_witness_from_json, public_inputs_length
 from py_ecc.bn128.bn128_curve import G1, G2, multiply, curve_order, add
 from py_ecc.bn128.bn128_pairing import pairing
 from keys import keys
@@ -27,9 +27,10 @@ class Prover:
         return result
     
     def evaluate_problematic_C_part(self, witness, psi):
+        num_public_inputs = public_inputs_length(json_path=self.example_path + 'public_witness.json')
         problematic_C_part = None
-        for i in range(len(witness)):
-            a_i = witness[i]
+        for i in range(len(witness) - num_public_inputs):
+            a_i = witness[i + num_public_inputs]
             psi_i = psi[i]
             term = multiply(psi_i, int(a_i))
             problematic_C_part = term if problematic_C_part is None else add(problematic_C_part, term)
@@ -87,6 +88,8 @@ class Prover:
         C = add(problematic_C_part, h_t_tau)
 
         keys.save_proof_to_json(A, B, C, json_path=self.example_path + 'proof.json')
+
+
         
 
         return A, B, C

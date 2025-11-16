@@ -145,3 +145,6 @@ examples/**/proving_key.json
 examples/**/verifying_key.json
 examples/**/verification_key.json
 examples/**/proof.json
+
+# ignore test files that are created as a draft
+test.py
