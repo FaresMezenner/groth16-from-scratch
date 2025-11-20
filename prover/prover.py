@@ -67,11 +67,11 @@ class Prover:
         galois_field = GF(curve_order)
         witness = load_witness_from_json(json_path=self.example_path + 'witness.json', galois_field=galois_field)
         L, R, O = load_matrices_from_json(json_path=self.example_path + 'r1cs.json',  galois_field=galois_field)
-        srs1, srs2, srs3, psi, alpha, beta_G1, beta_G2, delta_G1, delta_G2 = keys.load_proving_key_from_json(json_path=self.example_path + 'proving_key.json')
+        srs1, srs2, srs3, psi, alpha, beta_G1, beta_G2, delta_G1, delta_G2, tau_G1, tau_G2 = keys.load_proving_key_from_json(json_path=self.example_path + 'proving_key.json')
 
         # sanity check for srs1 and srs2
-        self.sanity_check_srs_G1(srs1, srs2[1])  # encrypted tau in G2 is srs2[1]
-        self.sanity_check_srs_G2(srs2, srs1[1]) # encrypted tau in G1 is srs1[1]
+        self.sanity_check_srs_G1(srs1, tau_G2) 
+        self.sanity_check_srs_G2(srs2, tau_G1)
 
         # Generate the polynomials of the matrices using Lagrange interpolation
         L_transposed = list(zip(*L))

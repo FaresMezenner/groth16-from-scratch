@@ -11,6 +11,7 @@ from galois import lagrange_poly, GF
 def save_json(data, json_path):
     import json
     with open(json_path, 'w') as f:
+        print("Opening file to save json data:", json_path)
         json.dump(data, f, indent=4)
 
 

@@ -2,7 +2,7 @@ import json
 
 from utils import utils
 
-def save_prooving_key_to_json(srs1, srs2, srs3, psi, alpha, beta_G1, beta_G2, delta_G1, delta_G2, json_path = './examples/example1/proving_key.json'):
+def save_prooving_key_to_json(srs1, srs2, srs3, psi, alpha, beta_G1, beta_G2, delta_G1, delta_G2, tau_G1, tau_G2, json_path = './examples/example1/proving_key.json'):
     proving_key_data = {
         'srs1': utils.serialize_points_G1(srs1),
         'srs2': utils.serialize_points_G2(srs2),
@@ -13,18 +13,22 @@ def save_prooving_key_to_json(srs1, srs2, srs3, psi, alpha, beta_G1, beta_G2, de
         'beta_G2': utils.serialize_point_G2(beta_G2),
         'delta_G1': utils.serialize_point_G1(delta_G1),
         'delta_G2': utils.serialize_point_G2(delta_G2),
+        'tau_G1': utils.serialize_point_G1(tau_G1),
+        'tau_G2': utils.serialize_point_G2(tau_G2),
     }
 
     with open(json_path, 'w') as f:
+        print("Openinf file to save proving key:", json_path)
         json.dump(proving_key_data, f, indent=4)
 
 def load_proving_key_from_json(json_path = './examples/example1/proving_key.json'):
 
     with open(json_path, 'r') as f:
+        print("Opening file to load proving key:", json_path)
         data = json.load(f)
     proving_key_data = data
 
-    assert 'srs1' in proving_key_data and 'srs2' in proving_key_data and 'srs3' in proving_key_data and 'psi' in proving_key_data and 'alpha' in proving_key_data and 'beta_G1' in proving_key_data and 'beta_G2' in proving_key_data and 'delta_G1' in proving_key_data and 'delta_G2' in proving_key_data, "Proving key must contain 'srs1', 'srs2', 'srs3', 'psi', 'alpha', 'beta_G1', 'beta_G2', 'delta_G1' and 'delta_G2'"
+    assert 'srs1' in proving_key_data and 'srs2' in proving_key_data and 'srs3' in proving_key_data and 'psi' in proving_key_data and 'alpha' in proving_key_data and 'beta_G1' in proving_key_data and 'beta_G2' in proving_key_data and 'delta_G1' in proving_key_data and 'delta_G2' in proving_key_data and 'tau_G1' in proving_key_data and 'tau_G2' in proving_key_data, "Proving key must contain 'srs1', 'srs2', 'srs3', 'psi', 'alpha', 'beta_G1', 'beta_G2', 'delta_G1', 'delta_G2', 'tau_G1' and 'tau_G2'"
     srs1 = utils.deserialize_points_G1(proving_key_data['srs1'])
     srs2 = utils.deserialize_points_G2(proving_key_data['srs2'])
     srs3 = utils.deserialize_points_G1(proving_key_data['srs3'])
@@ -34,7 +38,9 @@ def load_proving_key_from_json(json_path = './examples/example1/proving_key.json
     beta_G2 = utils.deserialize_point_G2(proving_key_data['beta_G2'])
     delta_G1 = utils.deserialize_point_G1(proving_key_data['delta_G1'])
     delta_G2 = utils.deserialize_point_G2(proving_key_data['delta_G2'])
-    return srs1, srs2, srs3, psi, alpha, beta_G1, beta_G2, delta_G1, delta_G2
+    tau_G1 = utils.deserialize_point_G1(proving_key_data['tau_G1'])
+    tau_G2 = utils.deserialize_point_G2(proving_key_data['tau_G2'])
+    return srs1, srs2, srs3, psi, alpha, beta_G1, beta_G2, delta_G1, delta_G2, tau_G1, tau_G2
 
 
 def save_proof_to_json(A, B, C, json_path = './examples/example1/proof.json'):
@@ -45,11 +51,13 @@ def save_proof_to_json(A, B, C, json_path = './examples/example1/proof.json'):
     }
 
     with open(json_path, 'w') as f:
+        print("Opening file to save proof:", json_path)
         json.dump(proof_data, f, indent=4)
 
 def load_proof_from_json(json_path = './examples/example1/proof.json'):
 
     with open(json_path, 'r') as f:
+        print("Opening file to load proof:", json_path)
         data = json.load(f)
     proof_data = data
 
@@ -70,11 +78,13 @@ def save_verifying_key_to_json(alpha, beta, delta_G2, gamma_G2, verifying_psi, j
     }
 
     with open(json_path, 'w') as f:
+        print("Opening file to save verifying key:", json_path)
         json.dump(verifying_key_data, f, indent=4)
 
 def load_verifying_key_from_json(json_path = './examples/example1/verifying_key.json'):
 
     with open(json_path, 'r') as f:
+        print("Opening file to load verifying key:", json_path)
         data = json.load(f)
     verifying_key_data = data
 

@@ -3,6 +3,7 @@ from galois import GF
 
 def load_matrices_from_json(json_path = './examples/example1//r1cs.json', modulo = None , galois_field=GF(101)):
     with open(json_path, 'r') as f:
+        print("Opening file to load R1CS matrices:", json_path)
         data = json.load(f)
     L = data['L']
     R = data['R']
